@@ -1,0 +1,21 @@
+{
+  "reportAttributeAccessIssue": false,
+  "reportCallIssue": false,
+  "reportUnusedImport": false,
+  "reportArgumentType": false,
+  "reportMissingImports": false,
+  "exclude": [
+        "**/tests",
+        "**/tests/**",
+        "**/.venv",
+        "**/.venv/**",
+        "**/app/shared_db"
+    ],
+    "ignore": [
+        "**/tests",
+        "**/tests/**",
+        "**/.venv",
+        "**/.venv/**",
+        "**/app/shared_db"
+    ]
+}

@@ -1,0 +1,99 @@
+name: CI Workflow
+
+on:
+  push:
+    branches:
+      - main
+      - development
+      - staging
+  pull_request:
+    branches:
+      - main
+      - staging
+      - development
+
+jobs:
+  submodule_setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository and Submodules
+        uses: actions/checkout@v2
+        with:
+            submodules: true
+            token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+
+      - name: Initialize and Align Submodule
+        run: |
+            TARGET_BRANCH=${{ github.base_ref || github.ref_name }}
+            echo "Initializing and aligning submodule to target branch: $TARGET_BRANCH"
+
+            git submodule update --init --recursive --force
+            git -C app/shared_db fetch origin +refs/heads/*:refs/remotes/origin/*
+            if git -C app/shared_db ls-remote --heads origin $TARGET_BRANCH | grep -q $TARGET_BRANCH; then
+            git -C app/shared_db checkout $TARGET_BRANCH || git -C app/shared_db checkout -b $TARGET_BRANCH origin/$TARGET_BRANCH
+            git -C app/shared_db reset --hard origin/$TARGET_BRANCH
+            else
+            echo "Error: Target branch $TARGET_BRANCH does not exist in the submodule repository."
+            exit 1
+            fi
+
+  validate_submodule:
+    runs-on: ubuntu-latest
+    needs: submodule_setup
+    steps:
+      - name: Checkout Repository and Submodules
+        uses: actions/checkout@v2
+        with:
+            submodules: true
+            token: ${{ secrets.GH_WORKFLOW_TOKEN }}
+
+      - name: Validate Submodule Commit
+        run: |
+            TARGET_BRANCH=${{ github.base_ref || github.ref_name }}
+            echo "Validating submodule branch alignment for target branch: $TARGET_BRANCH"
+
+            # Ensure the submodule is on the correct branch
+            git -C app/shared_db fetch origin +refs/heads/*:refs/remotes/origin/*
+            if git -C app/shared_db ls-remote --heads origin $TARGET_BRANCH | grep -q $TARGET_BRANCH; then
+            git -C app/shared_db checkout $TARGET_BRANCH || git -C app/shared_db checkout -b $TARGET_BRANCH origin/$TARGET_BRANCH
+            else
+            echo "Error: Target branch $TARGET_BRANCH does not exist in the submodule repository."
+            exit 1
+            fi
+
+            SUBMODULE_BRANCH=$(git -C app/shared_db rev-parse --abbrev-ref HEAD)
+            if [ "$TARGET_BRANCH" != "$SUBMODULE_BRANCH" ]; then
+            echo "Error: Submodule branch mismatch. Expected $TARGET_BRANCH, but got $SUBMODULE_BRANCH"
+            exit 1
+            fi
+
+            # Check for uncommitted changes
+            echo "Checking for uncommitted changes in the submodule..."
+            SUBMODULE_STATUS=$(git -C app/shared_db status --porcelain)
+            if [ ! -z "$SUBMODULE_STATUS" ]; then
+            echo "Error: Submodule has uncommitted changes."
+            echo "$SUBMODULE_STATUS"
+            exit 1
+            fi
+
+            echo "Submodule branch is correctly aligned and clean."
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: validate_submodule
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
+
+      - name: Install Dependencies
+        run: |
+          pip install pre-commit
+          pre-commit install
+
+      - name: Run Pre-Commit Hooks
+        run: pre-commit run --all-files

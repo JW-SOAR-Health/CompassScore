@@ -1,0 +1,25 @@
+#!/bin/bash
+# Post-checkout hook to update submodules to the correct branch
+
+# Get the current branch of the main repository
+MAIN_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Update submodule to the corresponding branch
+SUBMODULE_PATH="app/shared_db"  # Adjust this path to your submodule
+case "$MAIN_BRANCH" in
+    main)
+        git submodule update --remote --branch main "$SUBMODULE_PATH"
+        ;;
+    staging)
+        git submodule update --remote --branch staging "$SUBMODULE_PATH"
+        ;;
+    development)
+        git submodule update --remote --branch development "$SUBMODULE_PATH"
+        ;;
+    *)
+        echo "No submodule mapping for branch '$MAIN_BRANCH'."
+        ;;
+esac
+
+echo "Submodules updated for branch $MAIN_BRANCH."
+exit 0

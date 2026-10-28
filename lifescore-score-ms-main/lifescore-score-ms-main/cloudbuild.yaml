@@ -1,0 +1,67 @@
+steps:
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      echo "$$GITHUB_DEPLOY_KEY" > /root/.ssh/id_rsa
+      chmod 600 /root/.ssh/id_rsa
+      ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+    secretEnv: ['GITHUB_DEPLOY_KEY']
+    volumes:
+    - name: 'ssh'
+      path: /root/.ssh
+
+  # Update submodules
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      git submodule init
+      git submodule update --recursive
+    volumes:
+    - name: 'ssh'
+      path: /root/.ssh
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${COMMIT_SHA}'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_ARTIFACT_REGISTRY_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${COMMIT_SHA}'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image'
+      - '${_ARTIFACT_REGISTRY_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${COMMIT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+
+substitutions:
+  _ARTIFACT_REGISTRY_HOST: us-central1-docker.pkg.dev
+  _REPOSITORY: development-scoring-service
+  _IMAGE: scoring-service
+  _SERVICE_NAME: development-scoring-service
+  _REGION: us-central1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - '${_ARTIFACT_REGISTRY_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_IMAGE}:${COMMIT_SHA}'
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/development-github_deploy_key/versions/latest
+      env: 'GITHUB_DEPLOY_KEY'

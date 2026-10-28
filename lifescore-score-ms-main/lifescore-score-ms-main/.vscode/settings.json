@@ -1,0 +1,18 @@
+{
+  "python.autoComplete.extraPaths": [
+    "./app",
+    "./app/shared_db"  // Adding shared_db if you directly import from it
+  ],
+  "python.analysis.extraPaths": [
+    "./app",
+    "./app/shared_db"  // Ensures the Python language server also recognizes this path
+  ],
+  "python.analysis.autoSearchPaths": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["app/tests"],
+  "python.analysis.ignore": [
+      "**/tests/**",
+      "**/.venv/**",
+  ],
+}

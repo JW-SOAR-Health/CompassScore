@@ -1,0 +1,4 @@
+[submodule "app/shared_db"]
+	path = app/shared_db
+	url = git@github.com:LifeScore23/shared_db.git
+    branch = development
